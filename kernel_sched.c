@@ -152,6 +152,7 @@ TCB* spawn_thread(PCB* pcb, void (*func)())
   tcb->phase = CTX_CLEAN;
   tcb->state_spinlock = MUTEX_INIT;
   tcb->thread_func = func;
+  tcb->priority = 2;
   rlnode_init(& tcb->sched_node, tcb);  /* Intrusive list node */
 
 
@@ -215,16 +216,22 @@ CCB cctx[MAX_CORES];
 /*
   The scheduler queue is implemented as a doubly linked list. The
   head and tail of this list are stored in  SCHED.
+  The scheduler is implemented as a multilevel feedback queue.
 */
 
 
-rlnode SCHED;                         /* The scheduler queue */
+rlnode SCHED[3];
+
 Mutex sched_spinlock = MUTEX_INIT;    /* spinlock for scheduler queue */
 
 
 /* Interrupt handler for ALARM */
 void yield_handler()
 {
+  TCB* tcb = CURTHREAD;
+  if((tcb->priority)>0){
+  tcb->priority=tcb->priority-1;
+  }
   yield();
 }
 
@@ -243,7 +250,7 @@ void sched_queue_add(TCB* tcb)
 {
   /* Insert at the end of the scheduling list */
   Mutex_Lock(& sched_spinlock);
-  rlist_push_back(& SCHED, & tcb->sched_node);
+  rlist_push_back(& SCHED[tcb->priority], & tcb->sched_node);
   Mutex_Unlock(& sched_spinlock);
 
   /* Restart possibly halted cores */
@@ -257,10 +264,15 @@ void sched_queue_add(TCB* tcb)
 */
 TCB* sched_queue_select()
 {
+ int y=3;
   Mutex_Lock(& sched_spinlock);
-  rlnode * sel = rlist_pop_front(& SCHED);
+  rlnode * sel;
+  do{
+  y=y-1;
+  sel = rlist_pop_front(& (SCHED[y]));
+  
+  }while (sel->tcb==NULL && y>0);
   Mutex_Unlock(& sched_spinlock);
-
   return sel->tcb;  /* When the list is empty, this is NULL */
 } 
 
@@ -278,7 +290,7 @@ void wakeup(TCB* tcb)
   assert(tcb->state==STOPPED || tcb->state==INIT); 
 
   tcb->state = READY;
-
+  
   /* Possibly add to the scheduler queue */
   if(tcb->phase == CTX_CLEAN) 
     sched_queue_add(tcb);
@@ -324,12 +336,23 @@ void sleep_releasing(Thread_state state, Mutex* mx)
 
 
 /* This function is the entry point to the scheduler's context switching */
+int i=0;
 
 void yield()
 { 
   /* Reset the timer, so that we are not interrupted by ALARM */
   bios_cancel_timer();
-
+  i=i+1;
+  if(i==10){
+  rlnode* ptr;
+  ptr=rlist_pop_front(&SCHED[0]);
+  while(ptr!=NULL){
+{
+   rlist_push_back(& SCHED[2], &ptr);
+   tail(&SCHED[2]).tcb->priority=2;
+  };
+  i=0;
+  }
   /* We must stop preemption but save it! */
   int preempt = preempt_off;
 
@@ -338,6 +361,7 @@ void yield()
   int current_ready = 0;
 
   Mutex_Lock(& current->state_spinlock);
+  
   switch(current->state)
   {
     case RUNNING:
@@ -460,8 +484,10 @@ static void idle_thread()
   Initialize the scheduler queue
  */
 void initialize_scheduler()
-{
-  rlnode_init(&SCHED, NULL);
+{ 
+  rlnode_init(&SCHED[0], NULL);
+  rlnode_init(&SCHED[1], NULL);
+  rlnode_init(&SCHED[2], NULL);
 }
 
 
@@ -477,6 +503,7 @@ void run_scheduler()
 
   curcore->idle_thread.owner_pcb = get_pcb(0);
   curcore->idle_thread.type = IDLE_THREAD;
+  curcore->idle_thread.priority = 0;
   curcore->idle_thread.state = RUNNING;
   curcore->idle_thread.phase = CTX_DIRTY;
   curcore->idle_thread.state_spinlock = MUTEX_INIT;

@@ -116,6 +116,12 @@ int serial_read(void* dev, char *buf, unsigned int size)
       count++;
     }
     else if(count==0) {
+       Mutex_Lock(& CURTHREAD->state_spinlock);
+       if((CURTHREAD->priority)<2){
+       CURTHREAD->priority = (CURTHREAD->priority)+1 ;
+}
+     Mutex_Unlock(& CURTHREAD->state_spinlock);
+  
       Cond_Wait(&dcb->spinlock, &dcb->rx_ready);
     }
     else

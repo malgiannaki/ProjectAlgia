@@ -56,6 +56,9 @@ typedef enum {
     CTX_DIRTY    /**< Means that, the context stored in the TCN is garbage. */
   } Thread_phase;
 
+typedef int Thread_priority; 
+
+
 /** @brief Thread type. */
 typedef enum { 
   IDLE_THREAD,    /**< Marks an idle thread. */
@@ -81,6 +84,7 @@ typedef struct thread_control_block
   Thread_type type;       /**< The type of thread */
   Thread_state state;    /**< The state of the thread */
   Thread_phase phase;    /**< The phase of the thread */
+  Thread_priority priority;    /**< The priority of the thread */
 
   void (*thread_func)();   /**< The function executed by this thread */
 

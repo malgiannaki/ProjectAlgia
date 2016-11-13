@@ -794,7 +794,7 @@ void cpu_ici(uint core)
 }
 
 void cpu_interrupt_handler(Interrupt interrupt, interrupt_handler handler)
-{
+{      
 	curr_core()->intvec[interrupt] = handler;
 }
 
