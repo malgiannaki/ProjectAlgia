@@ -152,7 +152,7 @@ TCB* spawn_thread(PCB* pcb, void (*func)())
   tcb->phase = CTX_CLEAN;
   tcb->state_spinlock = MUTEX_INIT;
   tcb->thread_func = func;
-  tcb->priority = 2;
+  tcb->priority = PR-1;
   rlnode_init(& tcb->sched_node, tcb);  /* Intrusive list node */
 
 
@@ -220,7 +220,7 @@ CCB cctx[MAX_CORES];
 */
 
 
-rlnode SCHED[3];
+rlnode SCHED[PR];
 
 Mutex sched_spinlock = MUTEX_INIT;    /* spinlock for scheduler queue */
 
@@ -228,10 +228,7 @@ Mutex sched_spinlock = MUTEX_INIT;    /* spinlock for scheduler queue */
 /* Interrupt handler for ALARM */
 void yield_handler()
 {
-  TCB* tcb = CURTHREAD;
-  if((tcb->priority)>0){
-  tcb->priority=tcb->priority-1;
-  }
+  
   yield();
 }
 
@@ -264,7 +261,7 @@ void sched_queue_add(TCB* tcb)
 */
 TCB* sched_queue_select()
 {
- int y=3;
+ int y=PR;
   Mutex_Lock(& sched_spinlock);
   rlnode * sel;
   do{
@@ -272,6 +269,9 @@ TCB* sched_queue_select()
   sel = rlist_pop_front(& (SCHED[y]));
   
   }while (sel->tcb==NULL && y>0);
+  if(sel->tcb!=NULL){
+  sel->tcb->priority=y;
+}
   Mutex_Unlock(& sched_spinlock);
   return sel->tcb;  /* When the list is empty, this is NULL */
 } 
@@ -336,22 +336,20 @@ void sleep_releasing(Thread_state state, Mutex* mx)
 
 
 /* This function is the entry point to the scheduler's context switching */
-int i=0;
+int control_time=0;
 
 void yield()
 { 
   /* Reset the timer, so that we are not interrupted by ALARM */
   bios_cancel_timer();
-  i=i+1;
-  if(i==10){
-  rlnode* ptr;
-  ptr=rlist_pop_front(&SCHED[0]);
-  while(ptr!=NULL){
-{
-   rlist_push_back(& SCHED[2], &ptr);
-   tail(&SCHED[2]).tcb->priority=2;
-  };
-  i=0;
+
+  control_time=control_time+1;
+
+  for(int a=PR-1; a<=PR-3; a--){
+   if(control_time==50){
+     rlist_push_back(& SCHED[PR-1], & SCHED[PR-a]); 
+     control_time=0;
+   }
   }
   /* We must stop preemption but save it! */
   int preempt = preempt_off;
@@ -366,6 +364,10 @@ void yield()
   {
     case RUNNING:
       current->state = READY;
+      
+  if((current->priority)>0){
+  current->priority=current->priority-1;
+  }
     case READY: /* We were awakened before we managed to sleep! */
       current_ready = 1;
       break;
@@ -485,9 +487,9 @@ static void idle_thread()
  */
 void initialize_scheduler()
 { 
-  rlnode_init(&SCHED[0], NULL);
-  rlnode_init(&SCHED[1], NULL);
-  rlnode_init(&SCHED[2], NULL);
+ for(int i=0; i<=PR-1; i++){
+  rlnode_init(&SCHED[i], NULL);
+ }
 }
 
 

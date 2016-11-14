@@ -104,6 +104,7 @@ typedef struct thread_control_block
 /** Thread stack size */
 #define THREAD_STACK_SIZE  (128*1024)
 
+#define PR 3
 
 /************************
  *
