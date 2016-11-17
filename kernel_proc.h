@@ -58,6 +58,19 @@ typedef struct process_control_block {
 } PCB;
 
 
+
+typedef struct process_treads_control_block {
+
+  TCB* thread_pointer;   /**< Pointer of each thread */	
+ 
+ int exitval;            /**< The exit value */
+ Task thread_task;         /**< Each thread's function */
+  int argl;               /**< Each thread's argument length */
+  void* args;             /**< Each thread's argument string */
+
+
+}PTCB;
+
 /**
   @brief Initialize the process table.
 

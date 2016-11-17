@@ -8,7 +8,34 @@
   */
 Tid_t CreateThread(Task task, int argl, void* args)
 {
-	return NOTHREAD;
+
+
+
+  PTCB* ptcb;
+
+ ptcb->thread_task=task;
+ ptcb->argl=argl;
+ ptcb->args=args;
+
+
+ptcb->thread_pointer= spawn_thread(CURPROC, start_thread());
+ 
+	return (Tid_t) ptcb->thread_pointer;
+}
+
+
+void start_thread()
+{
+  PTCB* ptcb;
+
+  int exitval;
+
+  Task call =  ptcb->thread_task;
+  int argl = ptcb->argl;
+  void* args = ptcb->args;
+
+  exitval = call(argl,args);
+  Exit(exitval);
 }
 
 /**
@@ -24,6 +51,8 @@ Tid_t ThreadSelf()
   */
 int ThreadJoin(Tid_t tid, int* exitval)
 {
+
+
 	return -1;
 }
 
@@ -40,6 +69,7 @@ int ThreadDetach(Tid_t tid)
   */
 void ThreadExit(int exitval)
 {
+
 
 }
 

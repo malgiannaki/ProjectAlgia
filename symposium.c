@@ -206,6 +206,8 @@ int PhilosopherThread(int i, void* symp)
  */
 int SymposiumOfThreads(int argl, void* args)
 {
+	int* exitval=NULL;
+
 	assert(argl == sizeof(symposium_t));
 	symposium_t* symp = args;
 	int N = symp->N;
@@ -222,7 +224,7 @@ int SymposiumOfThreads(int argl, void* args)
 
 	/* Wait for philosophers to exit */  
 	for(int i=0;i<N;i++) {
-		ThreadJoin(thread[i],NULL);
+		exitval=ThreadJoin(thread[i],exitval);
 	}
 
 	SymposiumTable_destroy(&S);
